@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+    <title>Sphere Rendering</title>
+
+    <script src="vector3.js"></script>
+    <script src="objects3D.js"></script>
+    <script src="light.js"></script>
+    <script src="color.js"></script>
+    <script src="ray.js"></script>
+
+    <script>
+        const fov = 70;
+        const sceneObjects = [];
+        const lightSources = [];
+        const raysReflection = 5;
+        const ambientLightFactor = 0.1;
+        const transparencyShadowFactor = 0.9;
+        const canvasSize = {x: 700, y: 500};
+        const spherePosition = new Vector3(0,0,0);
+
+        var canvas;
+        var context;
+        var imageData;
+        var screenPoint;
+        var screenXvector;
+        var screenYvector;
+        var cameraPosition;
+        var cameraDirection;
+        var cameraAngle = 0;
+        var cameraRadius = 350;
+        var cameraTurningSpeed = 10;
+
+
+        function generateCameraRay(xIndex, yIndex) {
+            let distanceX = xIndex - canvasSize.x/2;
+            let distanceY = yIndex - canvasSize.y/2;
+
+            let pixelPosition = screenPoint.clone();
+            pixelPosition.add(screenYvector.clone().scale(distanceY));
+            pixelPosition.add(screenXvector.clone().scale(distanceX));
+            let direction = Vector3.fromToNormalized(cameraPosition, pixelPosition);
+            let pixelRay = new Ray(cameraPosition, direction);
+
+            return pixelRay;
+        }
+
+        function getClosestCollision(ray) {
+            let closest = {
+                hit: false
+            };
+            sceneObjects.forEach(object => {
+                let result = object.raycast(ray);
+                if (result.hit && (closest.hit == false || result.distance < closest.distance))
+                    closest = result;
+            });
+            return closest;
+        }
+
+        function setPixel(x, y, color) {
+            let index = (y * canvasSize.x + x) * 4;
+            let data = imageData.data;
+            data[index + 0] = color.r;
+            data[index + 1] = color.g;
+            data[index + 2] = color.b;
+            data[index + 3] = 255;
+        }
+
+
+
+        function getPixelColor(collision, reflectionsLeft)
+        {
+            if (!collision.hit) return new Color();
+
+            let objectColor = collision.object.color;
+            let finalColor = new Color();
+
+            let reflectivityFactor = collision.object.reflectivity;
+            let transparencyFactor = collision.object.transparency;
+            let totalFactor = reflectivityFactor + transparencyFactor;
+            
+            if (totalFactor > 1) {
+                reflectivityFactor /= totalFactor;
+                transparencyFactor /= totalFactor;
+            }
+            else {
+                lightSources.forEach(lightSource => {
+
+                    let indirectIntensity = ambientLightFactor * lightSource.intensity;
+                    finalColor.add(objectColor.clone().multiply(indirectIntensity));
+                    
+                    let directionToLight = lightSource.getDirection(collision.point);
+                    let shadowRay = new Ray(collision.point, directionToLight).offsetOrigin();
+                    let shadowCollision = getClosestCollision(shadowRay);
+
+                    let directIntensity = directionToLight.dot(collision.normal);
+                    let transparency = -1;
+
+                    while (shadowCollision.hit && shadowCollision.distance < shadowRay.origin.distance(lightSource.position)) {
+                        if (transparency == -1)
+                            transparency = 1;
+                        transparency *= shadowCollision.object.transparency * transparencyShadowFactor;
+                        if (transparency == 0)
+                            break;
+                        shadowRay = new Ray(shadowCollision.point, directionToLight).offsetOrigin();
+                        shadowCollision = getClosestCollision(shadowRay);
+                    }
+
+                    if (directIntensity > 0) {
+                        if (transparency == -1) {
+                            finalColor.add(lightSource.getLitColor(objectColor, directIntensity));
+                        }
+                        else if (transparency > 0) {
+                            finalColor.add(lightSource.getLitColor(objectColor, directIntensity * transparency * transparencyShadowFactor));
+                        }
+                    }
+                });
+
+                finalColor.multiply(1 - totalFactor);
+            }
+
+            if (reflectivityFactor > 0 && reflectionsLeft > 0) {
+                let reflectedDirection = Vector3.reflect(collision.in, collision.normal);
+                let reflectedRay = new Ray(collision.point, reflectedDirection).offsetOrigin();
+                let reflectCollision = getClosestCollision(reflectedRay);
+
+                let reflectColor = getPixelColor(reflectCollision, reflectionsLeft - 1);
+                finalColor.add(reflectColor.multiply(reflectivityFactor));
+            }
+
+            if (transparencyFactor > 0 && reflectionsLeft > 0) {
+                let eta = collision.normal.dot(collision.in) > 0 ? 1.52 : 1.0 / 1.52;
+                let refractedDirection = Vector3.refract(collision.in, collision.normal, eta);
+                let refractedRay = new Ray(collision.point, refractedDirection).offsetOrigin();
+                let refractCollision = getClosestCollision(refractedRay);
+
+                let refractColor = getPixelColor(refractCollision, reflectionsLeft - 1);
+                finalColor.add(refractColor.multiply(transparencyFactor));
+            }
+
+            return finalColor;
+        }
+
+
+
+        function turnCamera() {
+            cameraAngle = (cameraAngle + cameraTurningSpeed) % 360;
+            angleRad = cameraAngle * Math.PI / 180;
+
+            cameraPosition = new Vector3(Math.cos(angleRad) * cameraRadius, 0, Math.sin(angleRad) * cameraRadius);
+            cameraDirection = Vector3.fromToNormalized(cameraPosition, spherePosition);
+
+            let distance = canvasSize.x / 2 / Math.tan(fov * Math.PI/360);
+            screenPoint = cameraPosition.clone().add(cameraDirection.clone().scale(distance));
+            screenXvector = Vector3.up.clone().cross(cameraDirection).normalize();
+            screenYvector = cameraDirection.cross(screenXvector).normalize().negate();            
+        }
+
+        function renderScene() {
+            turnCamera();
+
+            for (let i = 0; i < canvasSize.x; i++) {
+                for (let j = 0; j < canvasSize.y; j++) {
+                    let ray = generateCameraRay(i, j);
+                    let collision = getClosestCollision(ray);
+                    setPixel(i, j, getPixelColor(collision, raysReflection));
+                }
+            }
+            context.putImageData(imageData, 0, 0);
+            requestAnimationFrame(renderScene);
+        }
+
+
+        function addElements() {
+            let sphere = new Sphere(spherePosition, new Color(200,50,50), 0.3, 1, 50);
+            let sphere2 = new Sphere(new Vector3(-80, 50, -80), new Color(200,50,50), 0.3, 1, 50);
+            let plane = new Plane(new Vector3(0,-50,0), new Color(200, 0, 200), 0.6, 0, Vector3.up);
+            let ceiling = new Plane(new Vector3(0,400,0), new Color(200, 0, 200), 0.6, 0, Vector3.down);
+            let wall1 = new Plane(new Vector3(0,0,400), new Color(50, 200, 50), 0, 0, Vector3.back);
+            let wall2 = new Plane(new Vector3(400,0,0), new Color(200, 50, 150), 0, 0, Vector3.left);
+            let wall3 = new Plane(new Vector3(0,0,-400), new Color(50, 50, 200), 0, 0, Vector3.forward);
+            let wall4 = new Plane(new Vector3(-400,0,0), new Color(200, 200, 50), 0, 0, Vector3.right);
+            sceneObjects.push(sphere);
+            //sceneObjects.push(sphere2);
+            sceneObjects.push(plane);
+            sceneObjects.push(ceiling)
+            sceneObjects.push(wall1);
+            sceneObjects.push(wall2);
+            sceneObjects.push(wall3);
+            sceneObjects.push(wall4);
+            let light1 = new Light(new Vector3(-300, 50, -300), Vector3.zero, Color.white, 1.5, false);
+            let light2 = new Light(new Vector3(200, 300, 100), Vector3.zero, Color.green, 0.5, false);
+            let light3 = new Light(new Vector3(200, 0, 0), Vector3.zero, Color.blue, 0.5, false);
+            lightSources.push(light1);
+            //lightSources.push(light2);
+            //lightSources.push(light3);
+        }
+
+        function init() {
+            canvas = document.getElementById("myCanvas");
+            canvas.width = canvasSize.x;
+            canvas.height = canvasSize.y;
+            context = canvas.getContext("2d");
+            imageData = context.getImageData(0, 0, canvasSize.x, canvasSize.y);
+
+            addElements();
+            renderScene();
+        }
+
+    </script>
+</head>
+
+<body onload="init()">
+    <canvas id="myCanvas" width="0" height="0" style="border:1px solid gray;"></canvas>
+</body>
+
+</html>
