@@ -27,6 +27,7 @@ class Sphere extends Object3D
         };
 
         var a = ray.direction.x * ray.direction.x + ray.direction.y * ray.direction.y + ray.direction.z * ray.direction.z;
+        a *= a;
         var b = 2 * (ray.direction.x * (ray.origin.x - this.position.x)
                     + ray.direction.y * (ray.origin.y - this.position.y)
                     + ray.direction.z * (ray.origin.z - this.position.z));
@@ -35,7 +36,7 @@ class Sphere extends Object3D
                 ray.origin.z * ray.origin.z + this.position.z * this.position.z - 2 * ray.origin.z * this.position.z -
                 this.radius * this.radius;
         
-        var delta = b * b - 4 * a * a * c;
+        var delta = b * b - 4 * a * c;
 
         if (delta < 0) {
             return result;

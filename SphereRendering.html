@@ -71,6 +71,11 @@
 
         function getPixelColor(collision, reflectionsLeft)
         {
+            // This is where most of the logic is. Rays are reflected or refracted according to the material
+            // and their colors mixed throughout the recursions.
+            // We also simulate indirect illumination by multiplying a constant (ambientLightFactor) to the
+            // lightSource intensity and adding the result to every point the rays collide with.
+
             if (!collision.hit) return new Color();
 
             let objectColor = collision.object.color;
@@ -81,12 +86,15 @@
             let totalFactor = reflectivityFactor + transparencyFactor;
             
             if (totalFactor > 1) {
+                // In this case the material color is not used, it will come from the rays it reflect/refracts
                 reflectivityFactor /= totalFactor;
                 transparencyFactor /= totalFactor;
             }
             else {
+                // Iterating through the light sources
                 lightSources.forEach(lightSource => {
 
+                    // Indirect illumination (applied whatever happens next)
                     let indirectIntensity = ambientLightFactor * lightSource.intensity;
                     finalColor.add(objectColor.clone().multiply(indirectIntensity));
                     
@@ -97,6 +105,8 @@
                     let directIntensity = directionToLight.dot(collision.normal);
                     let transparency = -1;
 
+                    // The shadow will have more enlightment if the objects are transparent, so we iterate
+                    // through the objects hit by the shadow rays to get the final transparency
                     while (shadowCollision.hit && shadowCollision.distance < shadowRay.origin.distance(lightSource.position)) {
                         if (transparency == -1)
                             transparency = 1;
@@ -109,17 +119,21 @@
 
                     if (directIntensity > 0) {
                         if (transparency == -1) {
+                            // Point is directly lit
                             finalColor.add(lightSource.getLitColor(objectColor, directIntensity));
                         }
                         else if (transparency > 0) {
+                            // Point is in shadow, but the shadow comes from a transparent object
                             finalColor.add(lightSource.getLitColor(objectColor, directIntensity * transparency * transparencyShadowFactor));
                         }
                     }
                 });
 
+                // Add the colors proportionally
                 finalColor.multiply(1 - totalFactor);
             }
 
+            // Handling reflections
             if (reflectivityFactor > 0 && reflectionsLeft > 0) {
                 let reflectedDirection = Vector3.reflect(collision.in, collision.normal);
                 let reflectedRay = new Ray(collision.point, reflectedDirection).offsetOrigin();
@@ -129,6 +143,7 @@
                 finalColor.add(reflectColor.multiply(reflectivityFactor));
             }
 
+            // Handling refractions
             if (transparencyFactor > 0 && reflectionsLeft > 0) {
                 let eta = collision.normal.dot(collision.in) > 0 ? 1.52 : 1.0 / 1.52;
                 let refractedDirection = Vector3.refract(collision.in, collision.normal, eta);
@@ -173,27 +188,28 @@
 
 
         function addElements() {
-            let sphere = new Sphere(spherePosition, new Color(200,50,50), 0.3, 1, 50);
-            let sphere2 = new Sphere(new Vector3(-80, 50, -80), new Color(200,50,50), 0.3, 1, 50);
-            let plane = new Plane(new Vector3(0,-50,0), new Color(200, 0, 200), 0.6, 0, Vector3.up);
-            let ceiling = new Plane(new Vector3(0,400,0), new Color(200, 0, 200), 0.6, 0, Vector3.down);
+            // object = new Object( position , color , reflectivity , transparency , radius/normal );
+            let sphere = new Sphere(spherePosition, new Color(200,50,50), 0.2, 1, 50);
+            let plane = new Plane(new Vector3(0,-50,0), new Color(200, 200, 200), 0.5, 0, Vector3.up);
+            let ceiling = new Plane(new Vector3(0,400,0), new Color(200, 200, 200), 0.5, 0, Vector3.down);
             let wall1 = new Plane(new Vector3(0,0,400), new Color(50, 200, 50), 0, 0, Vector3.back);
             let wall2 = new Plane(new Vector3(400,0,0), new Color(200, 50, 150), 0, 0, Vector3.left);
             let wall3 = new Plane(new Vector3(0,0,-400), new Color(50, 50, 200), 0, 0, Vector3.forward);
             let wall4 = new Plane(new Vector3(-400,0,0), new Color(200, 200, 50), 0, 0, Vector3.right);
             sceneObjects.push(sphere);
-            //sceneObjects.push(sphere2);
             sceneObjects.push(plane);
             sceneObjects.push(ceiling)
             sceneObjects.push(wall1);
             sceneObjects.push(wall2);
             sceneObjects.push(wall3);
             sceneObjects.push(wall4);
-            let light1 = new Light(new Vector3(-300, 50, -300), Vector3.zero, Color.white, 1.5, false);
-            let light2 = new Light(new Vector3(200, 300, 100), Vector3.zero, Color.green, 0.5, false);
-            let light3 = new Light(new Vector3(200, 0, 0), Vector3.zero, Color.blue, 0.5, false);
+
+            // light = new Light( position , direction (useless for now) , color , intensity , isDirectional (doesnt work for now) );
+            let light1 = new Light(new Vector3(-300, 50, -300), Vector3.zero, Color.blue, 1, false);
+            let light2 = new Light(new Vector3(200, 300, 100), Vector3.zero, Color.red, 1, false);
+            let light3 = new Light(new Vector3(200, 0, 0), Vector3.zero, Color.white, 0.5, false);
             lightSources.push(light1);
-            //lightSources.push(light2);
+            lightSources.push(light2);
             //lightSources.push(light3);
         }
 
@@ -213,6 +229,11 @@
 
 <body onload="init()">
     <canvas id="myCanvas" width="0" height="0" style="border:1px solid gray;"></canvas>
+    <p> See function "addElements" at line 190 to change the scene elements (color, reflectivty, ...) and the lights (position, color, intensity). </p>
+    <p> The main logic is in the function "getPixelColor" at line 72, where we reflect/refract rays and mix the colors. </p>
+    <p> The sphere is simulating a glass material, refracting most of the light and reflecting the rest. </p>
+    <p> The walls are opaque and the ceiling and floor are both reflecting 50% of the light. </p>
+    <p> The lights are red and blue, their colors can be changed. </p>
 </body>
 
 </html>
