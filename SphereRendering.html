@@ -192,7 +192,7 @@
 
         function addElements() {
             // object = new Object( position , color , reflectivity , transparency , radius/normal );
-            let sphere = new Sphere(spherePosition, new Color(200,50,50), 0.3, 1, 50);
+            let sphere = new Sphere(spherePosition, new Color(200,50,50), 0.2, 1, 50);
             let floor = new Plane(new Vector3(0,-50,0), new Color(200, 200, 200), 0.5, 0, Vector3.up);
             let ceiling = new Plane(new Vector3(0,400,0), new Color(200, 200, 200), 0.5, 0, Vector3.down);
             let wall1 = new Plane(new Vector3(0,0,400), new Color(50, 200, 50), 0, 0, Vector3.back);
@@ -236,7 +236,6 @@
     <p> The main logic is in the function "getPixelColor" at line 72, where we reflect/refract rays and mix the colors. </p>
     <p> The sphere is simulating a glass material, refracting most of the light and reflecting the rest. </p>
     <p> The walls are opaque and the ceiling and floor are both reflecting 50% of the light. </p>
-    <p> The lights are red and blue, their colors can be changed. </p>
 </body>
 
 </html>
