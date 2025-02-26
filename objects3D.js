@@ -91,11 +91,11 @@ class Plane extends Object3D
             object: this
 		}
 
-		var numerator = this.normal.dot(this.position) - (this.normal.dot(ray.origin));
-		var denominator = this.normal.dot(ray.direction);
+		var numerator = Vector3.dot(this.normal, this.position) - (Vector3.dot(this.normal, ray.origin));
+		var denominator = Vector3.dot(this.normal, ray.direction);
 		var alpha = numerator / denominator;
 
-		if (alpha > 0 && this.normal.dot(ray.direction) < 0) {
+		if (alpha > 0 && Vector3.dot(this.normal, ray.direction) < 0) {
 			result.hit = true;
 			result.point = ray.origin.clone().add(ray.direction.clone().scale(alpha));
 			result.normal = this.normal;

@@ -98,11 +98,12 @@
                     let indirectIntensity = ambientLightFactor * lightSource.intensity;
                     finalColor.add(objectColor.clone().multiply(indirectIntensity));
                     
+                    // Tracing the shadow ray to the light
                     let directionToLight = lightSource.getDirection(collision.point);
                     let shadowRay = new Ray(collision.point, directionToLight).offsetOrigin();
                     let shadowCollision = getClosestCollision(shadowRay);
 
-                    let directIntensity = directionToLight.dot(collision.normal);
+                    let directIntensity = Vector3.dot(directionToLight, collision.normal);
                     let transparency = -1;
 
                     // The shadow will have more enlightment if the objects are transparent, so we iterate
@@ -145,7 +146,7 @@
 
             // Handling refractions
             if (transparencyFactor > 0 && reflectionsLeft > 0) {
-                let eta = collision.normal.dot(collision.in) > 0 ? 1.52 : 1.0 / 1.52;
+                let eta = Vector3.dot(collision.normal, collision.in) > 0 ? 1.52 : 1.0 / 1.52;
                 let refractedDirection = Vector3.refract(collision.in, collision.normal, eta);
                 let refractedRay = new Ray(collision.point, refractedDirection).offsetOrigin();
                 let refractCollision = getClosestCollision(refractedRay);
@@ -168,13 +169,14 @@
 
             let distance = canvasSize.x / 2 / Math.tan(fov * Math.PI/360);
             screenPoint = cameraPosition.clone().add(cameraDirection.clone().scale(distance));
-            screenXvector = Vector3.up.clone().cross(cameraDirection).normalize();
-            screenYvector = cameraDirection.cross(screenXvector).normalize().negate();            
+            screenXvector = Vector3.cross(Vector3.up, cameraDirection).normalize();
+            screenYvector = Vector3.cross(cameraDirection, screenXvector).normalize().negate();            
         }
 
         function renderScene() {
             turnCamera();
 
+            // Iterating through each pixel
             for (let i = 0; i < canvasSize.x; i++) {
                 for (let j = 0; j < canvasSize.y; j++) {
                     let ray = generateCameraRay(i, j);
@@ -182,6 +184,7 @@
                     setPixel(i, j, getPixelColor(collision, raysReflection));
                 }
             }
+            // Update the canvas
             context.putImageData(imageData, 0, 0);
             requestAnimationFrame(renderScene);
         }
@@ -189,15 +192,15 @@
 
         function addElements() {
             // object = new Object( position , color , reflectivity , transparency , radius/normal );
-            let sphere = new Sphere(spherePosition, new Color(200,50,50), 0.2, 1, 50);
-            let plane = new Plane(new Vector3(0,-50,0), new Color(200, 200, 200), 0.5, 0, Vector3.up);
+            let sphere = new Sphere(spherePosition, new Color(200,50,50), 0.3, 1, 50);
+            let floor = new Plane(new Vector3(0,-50,0), new Color(200, 200, 200), 0.5, 0, Vector3.up);
             let ceiling = new Plane(new Vector3(0,400,0), new Color(200, 200, 200), 0.5, 0, Vector3.down);
             let wall1 = new Plane(new Vector3(0,0,400), new Color(50, 200, 50), 0, 0, Vector3.back);
             let wall2 = new Plane(new Vector3(400,0,0), new Color(200, 50, 150), 0, 0, Vector3.left);
             let wall3 = new Plane(new Vector3(0,0,-400), new Color(50, 50, 200), 0, 0, Vector3.forward);
             let wall4 = new Plane(new Vector3(-400,0,0), new Color(200, 200, 50), 0, 0, Vector3.right);
             sceneObjects.push(sphere);
-            sceneObjects.push(plane);
+            sceneObjects.push(floor);
             sceneObjects.push(ceiling)
             sceneObjects.push(wall1);
             sceneObjects.push(wall2);
@@ -205,11 +208,11 @@
             sceneObjects.push(wall4);
 
             // light = new Light( position , direction (useless for now) , color , intensity , isDirectional (doesnt work for now) );
-            let light1 = new Light(new Vector3(-300, 50, -300), Vector3.zero, Color.blue, 1, false);
+            let light1 = new Light(new Vector3(-300, 50, -300), Vector3.zero, Color.white, 1, false);
             let light2 = new Light(new Vector3(200, 300, 100), Vector3.zero, Color.red, 1, false);
             let light3 = new Light(new Vector3(200, 0, 0), Vector3.zero, Color.white, 0.5, false);
             lightSources.push(light1);
-            lightSources.push(light2);
+            //lightSources.push(light2);
             //lightSources.push(light3);
         }
 

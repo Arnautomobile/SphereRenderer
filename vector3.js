@@ -109,22 +109,23 @@ class Vector3
     }
 
     //-----------------------------------------------------------------------------
-    dot(other) {
-        return this.x * other.x + this.y * other.y + this.z * other.z;
-    }
-
-    //-----------------------------------------------------------------------------
-    cross(v) {
-        return new Vector3(
-            this.y * v.z - this.z * v.y,
-            this.z * v.x - this.x * v.z,
-            this.x * v.y - this.y * v.x
-        );
-    }
-
-    //-----------------------------------------------------------------------------
     toString() {
         return "(" + this.x + ", " + this.y + ", " + this.z + ")";
+    }
+
+
+
+    //-----------------------------------------------------------------------------
+    static dot(v1, v2) {
+        return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+    }
+
+    static cross(v1, v2) {
+        return new Vector3(
+            v1.y * v2.z - v1.z * v2.y,
+            v1.z * v2.x - v1.x * v2.z,
+            v1.x * v2.y - v1.y * v2.x
+        );
     }
 
 
@@ -141,30 +142,30 @@ class Vector3
         return new Vector3(x, y, z);
     }
 
+
     //-----------------------------------------------------------------------------
     static angle(v1, v2) {
         var length = v1.length() * v2.length();
         if (length <= 0) return 0;
-        return Math.acos(v1.dot(v2) / length) * 180/Math.PI;
+        return Math.acos(this.dot(v1, v2) / length) * 180/Math.PI;
     }
 
-    //-----------------------------------------------------------------------------
     static project(vectorToProject, otherVector) {
         let length = otherVector.length();
         if (length <= 0) return null;
-        length = vectorToProject.dot(otherVector) / length;
+        length = this.dot(vectorToProject, otherVector) / length;
         return otherVector.clone().rescale(length);
     }
 
+
     //-----------------------------------------------------------------------------
     static reflect(vectorIn, normal) {
-        let factor = 2 * vectorIn.dot(normal);
+        let factor = 2 * this.dot(vectorIn, normal);
         return vectorIn.clone().subtract(normal.clone().scale(factor));
     }
 
-    //-----------------------------------------------------------------------------
     static refract(vectorIn, normal, eta) {
-        let cosTheta = Math.max(-1, Math.min(1, vectorIn.dot(normal)));
+        let cosTheta = Math.max(-1, Math.min(1, this.dot(vectorIn, normal)));
         let rOutPerp, rOutParallel;
         
         if (cosTheta < 0) {
@@ -186,7 +187,6 @@ class Vector3
     }
 
 
-
     //-----------------------------------------------------------------------------
     static randomUnitVector() {
         let theta = Math.random() * 2 * Math.PI;
@@ -197,10 +197,9 @@ class Vector3
         return new Vector3(x, y, z);
     }
 
-    //-----------------------------------------------------------------------------
     static randomHemisphere(normal) {
         let randomVec = Vector3.randomUnitVector();
-        if (randomVec.dot(normal) < 0) {
+        if (this.dot(randomVec, normal) < 0) {
             randomVec = randomVec.negate();
         }
         return randomVec;
